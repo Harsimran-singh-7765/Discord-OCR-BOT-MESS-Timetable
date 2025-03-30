@@ -7,14 +7,14 @@ from io import BytesIO
 import json
 import os
 from github import Github
+import re
+from datetime import datetime
 
-# Load tokens from environment variables for security
 TOKEN = "MTM1NTQ0ODgxNTkyNjExNjQxMg.GWoDpa.-2l173_qnlmbyYgMzFmTPwJ7c67xKVCksLQ8dk"
 GITHUB_TOKEN = "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"
 REPO_NAME = "Harsimran-singh-7765/JIIT-MESS-SCHEDULE"
 FILE_PATH = "timetable.ts"
 
-# Discord bot setup
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
@@ -27,7 +27,7 @@ async def on_ready():
 
 @bot.command()
 async def timetable(ctx):
-    await ctx.send("📸 Please send an image of the timetable.")
+    await ctx.send("📸 Please send an image of the mess schedule.")
 
     def check(m):
         return m.author == ctx.author and m.attachments
@@ -38,47 +38,78 @@ async def timetable(ctx):
         response = requests.get(image_url)
         img = Image.open(BytesIO(response.content))
 
-        # OCR Processing
         extracted_text = pytesseract.image_to_string(img)
+        
+        await ctx.send("🔍 Processing the image...")
+        
         formatted_timetable = format_timetable(extracted_text)
+        
+        preview = json.dumps(formatted_timetable, indent=2)[:1500]
+        await ctx.send(f"📝 Formatted Data Preview:\n```json\n{preview}\n...```")
 
-        # Send extracted text preview
-        await ctx.send(f"📝 Extracted Text:\n```\n{extracted_text[:1000]}\n...```")
-
-        # Push to 
-        print("🔍 Formatted Timetable Output:\n", formatted_timetable)
-
-        success = push_to_github(formatted_timetable)
+        ts_content = generate_typescript_content(formatted_timetable)
+        
+        success = push_to_github(ts_content)
         if success:
-            await ctx.send("✅ Timetable successfully updated on GitHub!")
+            await ctx.send("✅ Mess schedule successfully updated on GitHub!")
         else:
-            await ctx.send("❌ Failed to update GitHub. Check logs.")
+            await ctx.send("❌ Failed to update GitHub. Please check the logs.")
 
     except Exception as e:
-        await ctx.send(f"⚠️ Error: {e}")
+        await ctx.send(f"⚠️ Error: {str(e)}")
 
 def format_timetable(text):
     """
     Converts OCR text into structured timetable format.
     """
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    meals = ["Breakfast", "Lunch", "Dinner"]
     timetable = {}
+    
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
     current_day = None
+    current_meal = None
+    
+    for line in lines:
+        for day in days:
+            if day in line:
+                current_day = day
+                if current_day not in timetable:
+                    timetable[current_day] = {}
+                break
+        for meal in meals:
+            if meal.lower() in line.lower():
+                current_meal = meal.lower()
+                continue
+                
+        if current_day and current_meal and current_day in timetable:
+            line = re.sub(r'\d{2}\.\d{2}\.\d{2}', '', line)
 
-    for line in text.split("\n"):
-        line = line.strip()
-        if any(day in line for day in days):
-            current_day = next(day for day in days if day in line)
-            timetable[current_day] = {"breakfast": "", "lunch": "", "dinner": ""}
-        elif current_day:
-            meal_types = ["breakfast", "lunch", "dinner"]
-            for meal in meal_types:
-                if meal in line.lower():
-                    timetable[current_day][meal] = line.split(":", 1)[-1].strip()
+            line = re.sub(r'breakfast|lunch|dinner', '', line.lower(), flags=re.IGNORECASE)
+            line = line.strip(' ,-')
+            if line and not any(day in line for day in days):
+                timetable[current_day][current_meal] = line
 
-    # Convert to the required format
-    timetable_js = f"export const timetableData: WeeklyTimetable = {json.dumps(timetable, indent=2)};"
-    return timetable_js
+    return timetable
+
+def generate_typescript_content(timetable_data):
+    """
+    Converts the timetable data into TypeScript format.
+    """
+    ts_object = json.dumps(timetable_data, indent=2)
+
+    ts_content = """export interface WeeklyTimetable {
+  [key: string]: {
+    breakfast?: string;
+    lunch?: string;
+    dinner?: string;
+  };
+}
+
+export const timetableData: WeeklyTimetable = """ + ts_object + ";"
+    
+    return ts_content
 
 def push_to_github(content):
     """
@@ -87,18 +118,29 @@ def push_to_github(content):
     try:
         g = Github(GITHUB_TOKEN)
         repo = g.get_repo(REPO_NAME)
-
+        
         try:
             # Try to get the file if it exists
             contents = repo.get_contents(FILE_PATH)
-            repo.update_file(FILE_PATH, "Updated timetable", content, contents.sha)
-        except:
-            # If file does not exist, create it
-            repo.create_file(FILE_PATH, "Initial timetable upload", content)
-
+            repo.update_file(
+                FILE_PATH,
+                f"Updated mess schedule - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                content,
+                contents.sha
+            )
+        except Exception as e:
+            repo.create_file(
+                FILE_PATH,
+                f"Initial mess schedule upload - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                content
+            )
         return True
     except Exception as e:
         print(f"GitHub Error: {e}")
         return False
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    if not TOKEN:
+        print("Error: Discord token not found in environment variables!")
+    else:
+        bot.run(TOKEN)
