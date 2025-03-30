@@ -10,8 +10,9 @@ from github import Github
 import re
 from datetime import datetime
 
-TOKEN = "MTM1NTQ0ODgxNTkyNjExNjQxMg.GWoDpa.-2l173_qnlmbyYgMzFmTPwJ7c67xKVCksLQ8dk"
-GITHUB_TOKEN = "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"
+# Hardcoded tokens (temporary)
+TOKEN = "MTM1NTQ0ODgxNTkyNjExNjQxMg.GykAjD.3XHYFFBYaw14753Xzh3A1SpD6cGsdfDvcxKV6k"
+GITHUB_TOKEN = "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"
 REPO_NAME = "Harsimran-singh-7765/JIIT-MESS-SCHEDULE"
 FILE_PATH = "timetable.ts"
 
@@ -143,4 +144,4 @@ if __name__ == "__main__":
     if not TOKEN:
         print("Error: Discord token not found in environment variables!")
     else:
-        bot.run(TOKEN)
+        bot.run("MTM1NTQ0ODgxNTkyNjExNjQxMg.GykAjD.3XHYFFBYaw14753Xzh3A1SpD6cGsdfDvcxKV6k")
