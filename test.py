@@ -11,9 +11,7 @@ import re
 from datetime import datetime
 
 # Hardcoded tokens (temporary)
-TOKEN = "MTM1NTQ0ODgxNTkyNjExNjQxMg.GykAjD.3XHYFFBYaw14753Xzh3A1SpD6cGsdfDvcxKV6k"
-GITHUB_TOKEN = "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"
-REPO_NAME = "Harsimran-singh-7765/JIIT-MESS-SCHEDULE"
+
 FILE_PATH = "timetable.ts"
 
 intents = discord.Intents.default()
